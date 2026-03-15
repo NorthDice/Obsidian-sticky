@@ -46,7 +46,7 @@ def build_css():
         font-weight: 600;
         color: {p['TEXT']};
     }}
-    scrolledwindow, #editor-scroll,
+    scrolledwindow, #editor-scroll, #webview-scroll,
     scrolledwindow overshoot, scrolledwindow undershoot,
     scrolledwindow junction {{
         background-color: transparent;

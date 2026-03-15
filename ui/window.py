@@ -61,7 +61,7 @@ class StickyWindow(Gtk.Window):
         self._header.connect_drag(self)
         main_box.pack_start(self._header, False, False, 0)
 
-        self._editor = NoteEditor(self._on_text_changed, self._on_key_press)
+        self._editor = NoteEditor(self._on_text_changed, self._on_key_press, self._save_and_refresh)
         main_box.pack_start(self._editor, True, True, 0)
 
         self._footer = FooterBar(self._on_prev, self._on_next, self._on_remove_note)
@@ -97,6 +97,10 @@ class StickyWindow(Gtk.Window):
         if self._auto_save_id:
             GLib.source_remove(self._auto_save_id)
         self._auto_save_id = GLib.timeout_add(1500, self._auto_save)
+
+    def _save_and_refresh(self):
+        """Called when switching from edit → read mode."""
+        self._note_manager.save_current(self._editor.get_content())
 
     def _auto_save(self):
         self._note_manager.save_current(self._editor.get_content())
