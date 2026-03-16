@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Shadow -->
+  <rect x="14" y="14" width="232" height="232" rx="52" fill="#1a1a2e" opacity="0.35"/>
+
+  <!-- Background rounded square -->
+  <rect x="6" y="6" width="232" height="232" rx="52" fill="#2d2b3d"/>
+
+  <!-- Subtle border -->
+  <rect x="6" y="6" width="232" height="232" rx="52" fill="none" stroke="#7C3AED" stroke-width="2" opacity="0.2"/>
+
+  <!-- Obsidian gem -->
+  <g transform="translate(122, 88)">
+    <polygon points="0,-55 48,-28 48,28 0,55 -48,28 -48,-28" fill="#7C3AED" opacity="0.85"/>
+    <polygon points="0,-55 24,0 -16,0 -24,-19" fill="#A78BFA"/>
+    <polygon points="-48,-28 -16,0 24,0 -48,28" fill="#6D28D9"/>
+    <polygon points="48,-28 24,0 -16,0 48,28" fill="#5B21B6" opacity="0.9"/>
+    <polygon points="-16,0 24,0 0,55 -48,28" fill="#7C3AED"/>
+    <polygon points="24,0 48,28 0,55 -16,0" fill="#6D28D9"/>
+    <!-- Highlight -->
+    <polygon points="0,-55 13,-22 -9,-22" fill="#C4B5FD" opacity="0.4"/>
+  </g>
+
+  <!-- Text lines -->
+  <line x1="48" y1="170" x2="196" y2="170" stroke="#7C3AED" stroke-width="2.5" opacity="0.3" stroke-linecap="round"/>
+  <line x1="56" y1="188" x2="180" y2="188" stroke="#7C3AED" stroke-width="2.5" opacity="0.22" stroke-linecap="round"/>
+  <line x1="64" y1="206" x2="160" y2="206" stroke="#7C3AED" stroke-width="2.5" opacity="0.15" stroke-linecap="round"/>
+</svg>

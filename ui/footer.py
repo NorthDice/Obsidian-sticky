@@ -27,9 +27,9 @@ class FooterBar(Gtk.Box):
         self._btn_next.set_name("btn-arrow")
         self.pack_start(self._btn_next, False, False, 0)
 
-        btn_remove = self._make_btn("🗑", "Remove note from list", on_remove)
-        btn_remove.set_name("btn-remove")
-        self.pack_start(btn_remove, False, False, 4)
+        self._btn_remove = self._make_btn("🗑", "Remove note from list", on_remove)
+        self._btn_remove.set_name("btn-remove")
+        self.pack_start(self._btn_remove, False, False, 4)
 
         grip = self._make_grip()
         self.pack_start(grip, False, False, 0)

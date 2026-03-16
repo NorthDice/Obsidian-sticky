@@ -35,9 +35,9 @@ python3 obsidian_sticky.py
 
 Click the **+** button to add `.md` files from your Obsidian vault.
 
-### Controls
+### Controls panel
 
-| Action | Shortcut |
+| Action | Shortcut | 
 |---|---|
 | Save | Ctrl+S |
 | Next note | Ctrl+Tab |

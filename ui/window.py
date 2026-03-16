@@ -57,7 +57,8 @@ class StickyWindow(Gtk.Window):
         main_box.set_spacing(0)
         self.add(main_box)
 
-        self._header = HeaderBar(self._on_add_note, self._on_pin_toggle, self._on_close)
+        self._ui_visible = True
+        self._header = HeaderBar(self._on_add_note, self._on_pin_toggle, self._on_close, self._on_toggle_ui)
         self._header.connect_drag(self)
         main_box.pack_start(self._header, False, False, 0)
 
@@ -66,6 +67,11 @@ class StickyWindow(Gtk.Window):
 
         self._footer = FooterBar(self._on_prev, self._on_next, self._on_remove_note)
         main_box.pack_start(self._footer, False, False, 0)
+
+    def _on_toggle_ui(self, btn):
+        self._ui_visible = not self._ui_visible
+        self._header.set_ui_visible(self._ui_visible)
+        self._footer.set_visible(self._ui_visible)
 
     def _on_pin_toggle(self, btn):
         self._pinned = not self._pinned
