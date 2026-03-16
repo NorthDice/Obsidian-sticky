@@ -27,7 +27,29 @@ sudo apt install gir1.2-webkit2-4.1 python3-gi python3-gi-cairo gir1.2-gtk-3.0
 pip install markdown
 ```
 
+## Installation
+
+```bash
+bash install.sh
+```
+
+Creates a `.desktop` shortcut in the app menu and on the desktop.
+
+### Uninstall
+
+```bash
+bash uninstall.sh
+```
+
+Removes the shortcuts from the app menu and desktop.
+
 ## Usage
+
+```bash
+bash start.sh
+```
+
+Or run directly:
 
 ```bash
 python3 obsidian_sticky.py
