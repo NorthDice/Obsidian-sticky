@@ -47,7 +47,7 @@ class HeaderBar(Gtk.Box):
         self._btn_pin.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_pin, False, False, 0)
 
-        self._btn_toggle = self._make_btn("👁", "Hide interface", on_toggle_ui)
+        self._btn_toggle = self._make_btn("◈", "Hide interface", on_toggle_ui)
         self._btn_toggle.set_name("btn-toggle")
         self._btn_toggle.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_toggle, False, False, 0)
@@ -64,10 +64,10 @@ class HeaderBar(Gtk.Box):
             if w:
                 w.set_visible(visible)
         if visible:
-            self._btn_toggle.set_label("👁")
+            self._btn_toggle.set_label("◈")
             self._btn_toggle.set_tooltip_text("Hide interface")
         else:
-            self._btn_toggle.set_label("👁‍🗨")
+            self._btn_toggle.set_label("◇")
             self._btn_toggle.set_tooltip_text("Show interface")
 
     def set_title(self, name):
@@ -91,6 +91,7 @@ class HeaderBar(Gtk.Box):
 
         self._drag_area = Gtk.EventBox()
         self._drag_area.set_visible_window(False)
+        self._drag_area.set_valign(Gtk.Align.CENTER)
         self._drag_area.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK
             | Gdk.EventMask.BUTTON_RELEASE_MASK
@@ -140,7 +141,7 @@ class HeaderBar(Gtk.Box):
             with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w") as f:
                 f.write(svg_data)
                 tmp = f.name
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(tmp, 20, 20, True)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(tmp, 16, 16, True)
             os.unlink(tmp)
             return Gtk.Image.new_from_pixbuf(pixbuf)
         except Exception:

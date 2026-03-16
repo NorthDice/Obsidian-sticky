@@ -71,8 +71,8 @@ def build_css():
     }}
     #btn-arrow:hover {{ color: {p['ACCENT']}; }}
     #btn-close {{
-        font-size: 10pt;
-        padding: 1px 5px;
+        font-size: 11pt;
+        padding: 0 4px;
         color: #666;
         min-width: 0;
         min-height: 0;
@@ -84,7 +84,7 @@ def build_css():
         border-radius: 5px;
     }}
     #btn-add {{
-        font-size: 14pt;
+        font-size: 11pt;
         padding: 0 4px;
         color: {p['ACCENT']};
         min-width: 0;
@@ -114,6 +114,17 @@ def build_css():
         background-color: transparent;
     }}
     #btn-pin:hover {{ color: {p['ACCENT_LIGHT']}; }}
+    #btn-toggle {{
+        font-size: 11pt;
+        padding: 0 4px;
+        color: #666;
+        min-width: 0;
+        min-height: 0;
+        background-color: transparent;
+    }}
+    #btn-toggle:hover {{
+        color: {p['ACCENT_LIGHT']};
+    }}
     """.encode()
 
 
