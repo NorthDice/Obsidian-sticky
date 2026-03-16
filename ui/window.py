@@ -11,6 +11,18 @@ from ui.header import HeaderBar
 from ui.footer import FooterBar
 from ui.note_editor import NoteEditor
 
+_RESIZE_BORDER = 8
+_EDGE_CURSORS = {
+    Gdk.WindowEdge.NORTH_WEST: "nw-resize",
+    Gdk.WindowEdge.NORTH_EAST: "ne-resize",
+    Gdk.WindowEdge.SOUTH_WEST: "sw-resize",
+    Gdk.WindowEdge.SOUTH_EAST: "se-resize",
+    Gdk.WindowEdge.WEST: "w-resize",
+    Gdk.WindowEdge.EAST: "e-resize",
+    Gdk.WindowEdge.NORTH: "n-resize",
+    Gdk.WindowEdge.SOUTH: "s-resize",
+}
+
 
 class StickyWindow(Gtk.Window):
     def __init__(self):
@@ -31,6 +43,59 @@ class StickyWindow(Gtk.Window):
         self._note_manager.load_current()
 
         GLib.timeout_add_seconds(3, self._note_manager.poll_external_changes)
+        self._setup_edge_resize()
+
+    def _setup_edge_resize(self):
+        self.add_events(
+            Gdk.EventMask.POINTER_MOTION_MASK |
+            Gdk.EventMask.BUTTON_PRESS_MASK |
+            Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
+        self.connect("motion-notify-event", self._on_edge_motion)
+        self.connect("button-press-event", self._on_edge_press)
+        self.connect("leave-notify-event", self._on_edge_leave)
+
+    def _get_edge(self, x, y):
+        w, h = self.get_size()
+        b = _RESIZE_BORDER
+        left = x < b
+        right = x > w - b
+        top = y < b
+        bottom = y > h - b
+        if top and left:    return Gdk.WindowEdge.NORTH_WEST
+        if top and right:   return Gdk.WindowEdge.NORTH_EAST
+        if bottom and left: return Gdk.WindowEdge.SOUTH_WEST
+        if bottom and right:return Gdk.WindowEdge.SOUTH_EAST
+        if left:            return Gdk.WindowEdge.WEST
+        if right:           return Gdk.WindowEdge.EAST
+        if top:             return Gdk.WindowEdge.NORTH
+        if bottom:          return Gdk.WindowEdge.SOUTH
+        return None
+
+    def _on_edge_motion(self, widget, event):
+        edge = self._get_edge(event.x, event.y)
+        gdk_win = self.get_window()
+        if not gdk_win:
+            return
+        if edge is not None:
+            cursor = Gdk.Cursor.new_from_name(Gdk.Display.get_default(), _EDGE_CURSORS[edge])
+        else:
+            cursor = None
+        gdk_win.set_cursor(cursor)
+
+    def _on_edge_leave(self, widget, event):
+        gdk_win = self.get_window()
+        if gdk_win:
+            gdk_win.set_cursor(None)
+
+    def _on_edge_press(self, widget, event):
+        if event.button != 1:
+            return False
+        edge = self._get_edge(event.x, event.y)
+        if edge is not None:
+            self.begin_resize_drag(edge, event.button, int(event.x_root), int(event.y_root), event.time)
+            return True
+        return False
 
     def _setup_window(self):
         self.set_decorated(False)
