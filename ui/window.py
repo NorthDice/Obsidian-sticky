@@ -2,6 +2,7 @@ import os
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
+import cairo
 from gi.repository import Gtk, Gdk, GLib
 
 from config import ConfigManager
@@ -44,6 +45,14 @@ class StickyWindow(Gtk.Window):
 
         GLib.timeout_add_seconds(3, self._note_manager.poll_external_changes)
         self._setup_edge_resize()
+        self.connect("draw", self._on_draw)
+
+    def _on_draw(self, widget, cr):
+        cr.set_source_rgba(0, 0, 0, 0)
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.paint()
+        cr.set_operator(cairo.OPERATOR_OVER)
+        return False
 
     def _setup_edge_resize(self):
         self.add_events(
