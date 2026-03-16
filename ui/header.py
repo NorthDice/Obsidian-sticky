@@ -25,30 +25,36 @@ class HeaderBar(Gtk.Box):
 
         self._icon = self._make_svg_image(OBSIDIAN_SVG)
         if self._icon:
+            self._icon.set_valign(Gtk.Align.CENTER)
             self.pack_start(self._icon, False, False, 0)
 
         self._title = Gtk.Label(label="No note")
         self._title.set_name("note-title")
         self._title.set_ellipsize(Pango.EllipsizeMode.END)
         self._title.set_halign(Gtk.Align.START)
+        self._title.set_valign(Gtk.Align.CENTER)
         self._title.set_margin_start(7)
         self._title.set_hexpand(True)
         self.pack_start(self._title, True, True, 0)
 
         self._btn_add = self._make_btn("＋", "Add notes from Obsidian vault", on_add)
         self._btn_add.set_name("btn-add")
+        self._btn_add.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_add, False, False, 0)
 
         self._btn_pin = self._make_btn("◉", "Unpin from desktop", on_pin)
         self._btn_pin.set_name("btn-pin")
+        self._btn_pin.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_pin, False, False, 0)
 
         self._btn_toggle = self._make_btn("👁", "Hide interface", on_toggle_ui)
         self._btn_toggle.set_name("btn-toggle")
+        self._btn_toggle.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_toggle, False, False, 0)
 
         self._btn_close = self._make_btn("✕", "Close widget", on_close)
         self._btn_close.set_name("btn-close")
+        self._btn_close.set_valign(Gtk.Align.CENTER)
         self.pack_start(self._btn_close, False, False, 2)
 
         self._hideable = [self._icon, self._title, self._btn_add, self._btn_pin]
