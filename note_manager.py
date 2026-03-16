@@ -50,6 +50,9 @@ class NoteManager:
     def add_notes(self, paths):
         for path in paths:
             self._config.add_note(path)
+        if paths:
+            self._config.current_index = len(self._config.notes) - 1
+            self._config.save()
         self.load_current()
 
     def remove_current(self):

@@ -59,17 +59,47 @@ class HeaderBar(Gtk.Box):
             self._btn_pin.set_tooltip_text("Pin to desktop — keep below windows")
 
     def connect_drag(self, window):
-        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.connect("button-press-event", self._on_press, window)
+        self._drag_window = window
+        self._drag_active = False
+        self._drag_x = 0
+        self._drag_y = 0
 
-    def _on_press(self, widget, event, window):
+        self._drag_area = Gtk.EventBox()
+        self._drag_area.set_visible_window(False)
+        self._drag_area.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK
+        )
+        self._drag_area.connect("button-press-event", self._on_drag_begin)
+        self._drag_area.connect("button-release-event", self._on_drag_end)
+        self._drag_area.connect("motion-notify-event", self._on_drag_motion)
+
+        parent = self._title.get_parent()
+        parent.remove(self._title)
+        self._drag_area.add(self._title)
+        parent.pack_start(self._drag_area, True, True, 0)
+        parent.reorder_child(self._drag_area, 1)
+
+    def _on_drag_begin(self, widget, event):
         if event.button == 1:
-            window.begin_move_drag(
-                event.button,
-                int(event.x_root),
-                int(event.y_root),
-                event.time,
-            )
+            self._drag_active = True
+            self._drag_x = event.x_root
+            self._drag_y = event.y_root
+
+    def _on_drag_end(self, widget, event):
+        if event.button == 1 and self._drag_active:
+            self._drag_active = False
+            self._drag_window._save_window_state()
+
+    def _on_drag_motion(self, widget, event):
+        if self._drag_active:
+            dx = event.x_root - self._drag_x
+            dy = event.y_root - self._drag_y
+            self._drag_x = event.x_root
+            self._drag_y = event.y_root
+            wx, wy = self._drag_window.get_position()
+            self._drag_window.move(wx + int(dx), wy + int(dy))
 
     def _make_btn(self, label, tooltip, callback):
         btn = Gtk.Button(label=label)
