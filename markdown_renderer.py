@@ -1,3 +1,4 @@
+import json
 import re
 import markdown
 from markdown.preprocessors import Preprocessor
@@ -205,4 +206,234 @@ def render_html(markdown_text):
 <html>
 <head><meta charset="utf-8"><style>{_build_css()}</style></head>
 <body>{body}</body>
+</html>"""
+
+
+_RE_FRONTMATTER = re.compile(r'\A---\s*\n.*?\n---\s*\n', re.DOTALL)
+
+
+def split_into_blocks(md_text):
+    text = md_text
+    frontmatter = ""
+    fm = _RE_FRONTMATTER.match(text)
+    if fm:
+        frontmatter = fm.group(0)
+        text = text[fm.end():]
+
+    blocks = []
+    if frontmatter:
+        blocks.append(frontmatter.rstrip('\n'))
+
+    current = []
+    in_fence = False
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith('```'):
+            if in_fence:
+                current.append(line)
+                blocks.append('\n'.join(current))
+                current = []
+                in_fence = False
+            else:
+                if current:
+                    # flush accumulated lines as separate blocks split on blank lines
+                    _flush_paragraph_lines(current, blocks)
+                    current = []
+                current.append(line)
+                in_fence = True
+        elif in_fence:
+            current.append(line)
+        elif stripped == '':
+            if current:
+                blocks.append('\n'.join(current))
+                current = []
+        else:
+            current.append(line)
+    if current:
+        blocks.append('\n'.join(current))
+
+    if not blocks:
+        blocks.append('')
+    return blocks
+
+
+def _flush_paragraph_lines(lines, blocks):
+    blocks.append('\n'.join(lines))
+
+
+def render_block(md_text):
+    md = _get_md()
+    md.reset()
+    return md.convert(md_text)
+
+
+def _block_edit_css():
+    p = PALETTE
+    return f"""
+    .md-block {{
+        border-radius: 4px;
+        padding: 2px 4px;
+        transition: background-color 0.15s;
+        cursor: default;
+    }}
+    .md-block:hover {{
+        background-color: rgba(255,255,255,0.04);
+    }}
+    .md-block.editing {{
+        background-color: rgba(124,58,237,0.08);
+        padding: 0;
+    }}
+    .md-block.frontmatter {{
+        display: none;
+    }}
+    .block-textarea {{
+        width: 100%;
+        background-color: rgba(0,0,0,0.3);
+        color: {p['TEXT']};
+        border: 1px solid rgba(124,58,237,0.3);
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+        font-size: 10.5pt;
+        line-height: 1.5;
+        resize: none;
+        overflow: hidden;
+        outline: none;
+        box-sizing: border-box;
+        display: block;
+    }}
+    """
+
+
+def _inline_edit_js():
+    return """
+    var blocks = window._blocks;
+    var editingIndex = -1;
+    var debounceTimer = null;
+
+    function autoResize(ta) {
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+    }
+
+    function startEdit(index) {
+        if (editingIndex >= 0) finishEdit(editingIndex);
+        editingIndex = index;
+        var div = document.querySelector('.md-block[data-index="' + index + '"]');
+        if (!div) return;
+        div.classList.add('editing');
+        var ta = document.createElement('textarea');
+        ta.className = 'block-textarea';
+        ta.value = blocks[index];
+        div.innerHTML = '';
+        div.appendChild(ta);
+        autoResize(ta);
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+
+        ta.addEventListener('input', function() {
+            autoResize(ta);
+            blocks[index] = ta.value;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                window.webkit.messageHandlers.blockEdit.postMessage(
+                    JSON.stringify({type: 'autosave', index: index, content: ta.value})
+                );
+            }, 1500);
+        });
+
+        ta.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                finishEdit(index);
+            } else if (e.key === 'Tab' && !e.ctrlKey) {
+                e.preventDefault();
+                var start = ta.selectionStart;
+                var end = ta.selectionEnd;
+                ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+                ta.selectionStart = ta.selectionEnd = start + 4;
+                ta.dispatchEvent(new Event('input'));
+            } else if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                finishEdit(index);
+                window.webkit.messageHandlers.blockEdit.postMessage(
+                    JSON.stringify({type: 'shortcut', key: 'save'})
+                );
+            } else if (e.ctrlKey && e.key === 'Tab') {
+                e.preventDefault();
+                finishEdit(index);
+                window.webkit.messageHandlers.blockEdit.postMessage(
+                    JSON.stringify({type: 'shortcut', key: e.shiftKey ? 'prev' : 'next'})
+                );
+            }
+        });
+
+        ta.addEventListener('blur', function() {
+            setTimeout(function() {
+                if (editingIndex === index) finishEdit(index);
+            }, 100);
+        });
+    }
+
+    function finishEdit(index) {
+        if (editingIndex !== index) return;
+        if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+        editingIndex = -1;
+        var div = document.querySelector('.md-block[data-index="' + index + '"]');
+        if (div && window._blockHtml && window._blockHtml[index] !== undefined) {
+            div.innerHTML = window._blockHtml[index];
+            div.classList.remove('editing');
+        }
+        window.webkit.messageHandlers.blockEdit.postMessage(
+            JSON.stringify({type: 'done', index: index, content: blocks[index]})
+        );
+    }
+
+    document.addEventListener('dblclick', function(e) {
+        var target = e.target.closest('.md-block');
+        if (!target) return;
+        if (target.classList.contains('frontmatter')) return;
+        var index = parseInt(target.getAttribute('data-index'));
+        if (isNaN(index)) return;
+        e.preventDefault();
+        startEdit(index);
+    });
+
+    // Block link navigation
+    document.addEventListener('click', function(e) {
+        if (e.target.tagName === 'A') e.preventDefault();
+    });
+    """
+
+
+def render_html_inline_edit(blocks):
+    md = _get_md()
+    body_parts = []
+    html_fragments = []
+    for i, block in enumerate(blocks):
+        md.reset()
+        is_fm = (i == 0 and block.startswith('---'))
+        cls = 'md-block frontmatter' if is_fm else 'md-block'
+        html_fragment = md.convert(block) if not is_fm else ''
+        html_fragments.append(html_fragment)
+        body_parts.append(
+            f'<div class="{cls}" data-index="{i}">{html_fragment}</div>'
+        )
+
+    blocks_json = json.dumps(blocks)
+    block_html_json = json.dumps(html_fragments)
+    css = _build_css() + _block_edit_css()
+    js = _inline_edit_js()
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>{css}</style></head>
+<body>
+{''.join(body_parts)}
+<script>
+window._blocks = {blocks_json};
+window._blockHtml = {block_html_json};
+{js}
+</script>
+</body>
 </html>"""

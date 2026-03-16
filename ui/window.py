@@ -81,6 +81,9 @@ class StickyWindow(Gtk.Window):
         self._header.set_pinned(self._pinned)
 
     def _on_note_loaded(self, path, content, index, total):
+        if self._editor.is_editing:
+            return
+
         if self._auto_save_id:
             GLib.source_remove(self._auto_save_id)
             self._auto_save_id = None

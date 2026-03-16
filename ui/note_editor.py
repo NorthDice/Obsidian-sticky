@@ -1,9 +1,13 @@
+import json
+import base64
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.1')
 from gi.repository import Gtk, Gdk, GLib, WebKit2
 
-from markdown_renderer import render_html
+from markdown_renderer import (
+    render_html, split_into_blocks, render_block, render_html_inline_edit
+)
 
 
 class NoteEditor(Gtk.Box):
@@ -11,152 +15,143 @@ class NoteEditor(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
 
         self._content = ""
+        self._blocks = []
         self._editable = True
-        self._suppress = False
+        self._editing_index = -1
         self._external_changed = on_changed
         self._external_key_press = on_key_press
         self._on_save_and_refresh = on_save_and_refresh
 
-        self._stack = Gtk.Stack()
-        self._stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        self._stack.set_transition_duration(120)
+        content_manager = WebKit2.UserContentManager()
+        content_manager.register_script_message_handler("blockEdit")
+        content_manager.connect("script-message-received::blockEdit", self._on_block_edit)
 
-        # --- Read mode: WebView ---
-        self._web_scroll = Gtk.ScrolledWindow()
-        self._web_scroll.set_name("webview-scroll")
-        self._web_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self._web_scroll.set_shadow_type(Gtk.ShadowType.NONE)
-
-        self._webview = WebKit2.WebView()
+        self._webview = WebKit2.WebView.new_with_user_content_manager(content_manager)
         self._webview.set_name("webview")
         bg = Gdk.RGBA()
         bg.parse("rgba(0,0,0,0)")
         self._webview.set_background_color(bg)
 
-        # Disable context menu and navigation
         settings = self._webview.get_settings()
-        settings.set_enable_javascript(False)
+        settings.set_enable_javascript(True)
         settings.set_enable_developer_extras(False)
 
-        self._webview.connect("button-press-event", self._on_webview_click)
-        self._webview.connect("key-press-event", self._on_read_key_press)
-        self._web_scroll.add(self._webview)
-        self._stack.add_named(self._web_scroll, "read")
+        self._webview.connect("context-menu", lambda *a: True)
+        self._webview.connect("decide-policy", self._on_decide_policy)
+        self._webview.connect("key-press-event", self._on_key_press_event)
 
-        # --- Edit mode: TextView ---
-        self._edit_scroll = Gtk.ScrolledWindow()
-        self._edit_scroll.set_name("editor-scroll")
-        self._edit_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self._edit_scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_name("webview-scroll")
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        scroll.add(self._webview)
 
-        self._textview = Gtk.TextView()
-        self._textview.set_name("textview")
-        self._textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self._textview.set_left_margin(14)
-        self._textview.set_right_margin(14)
-        self._textview.set_top_margin(10)
-        self._textview.set_bottom_margin(10)
-
-        self._buf = self._textview.get_buffer()
-        self._buf.connect("changed", self._on_buffer_changed)
-        self._textview.connect("key-press-event", self._on_edit_key_press)
-        self._textview.connect("focus-out-event", self._on_focus_out)
-
-        self._edit_scroll.add(self._textview)
-        self._stack.add_named(self._edit_scroll, "edit")
-
-        self.pack_start(self._stack, True, True, 0)
-
-        # Start in read mode
-        self._stack.set_visible_child_name("read")
+        self.pack_start(scroll, True, True, 0)
 
     @property
     def mode(self):
-        return self._stack.get_visible_child_name()
+        return "read"
+
+    @property
+    def is_editing(self):
+        return self._editing_index >= 0
 
     def load(self, content):
-        """Load content (raw markdown). Renders in current mode."""
         self._content = content
-        if self.mode == "read":
-            self._render_webview()
-        else:
-            self._suppress = True
-            self._buf.set_text(content)
-            self._suppress = False
+        self._blocks = split_into_blocks(content)
+        self._editing_index = -1
+        html = render_html_inline_edit(self._blocks)
+        self._webview.load_html(html, None)
 
     def get_content(self):
-        """Return raw markdown content."""
-        if self.mode == "edit":
-            start = self._buf.get_start_iter()
-            end = self._buf.get_end_iter()
-            self._content = self._buf.get_text(start, end, True)
         return self._content
 
     def set_editable(self, enabled):
         self._editable = enabled
-        self._textview.set_editable(enabled)
 
     def switch_to_edit(self):
-        """Enter edit mode."""
-        if not self._editable:
-            return
-        if self.mode == "edit":
-            return
-        self._suppress = True
-        self._buf.set_text(self._content)
-        self._suppress = False
-        self._stack.set_visible_child_name("edit")
-        self._textview.grab_focus()
+        pass
 
     def switch_to_read(self):
-        """Exit edit mode → save content and render HTML."""
-        if self.mode == "read":
+        pass
+
+    def _rebuild_content(self):
+        parts = []
+        for i, block in enumerate(self._blocks):
+            if i == 0 and block.startswith('---'):
+                parts.append(block)
+            else:
+                parts.append(block)
+        self._content = '\n\n'.join(parts)
+
+    def _on_block_edit(self, manager, js_result):
+        try:
+            msg = json.loads(js_result.get_js_value().to_string())
+        except (ValueError, AttributeError):
             return
-        # Capture current text
-        start = self._buf.get_start_iter()
-        end = self._buf.get_end_iter()
-        self._content = self._buf.get_text(start, end, True)
-        self._stack.set_visible_child_name("read")
-        self._render_webview()
-        # Notify save callback
-        if self._on_save_and_refresh:
-            self._on_save_and_refresh()
 
-    def _render_webview(self):
-        html = render_html(self._content)
-        self._webview.load_html(html, None)
+        msg_type = msg.get('type')
+        index = msg.get('index', -1)
 
-    # --- Signals ---
+        if msg_type == 'autosave':
+            self._editing_index = index
+            if 0 <= index < len(self._blocks):
+                self._blocks[index] = msg['content']
+                self._rebuild_content()
+                if self._on_save_and_refresh:
+                    self._on_save_and_refresh()
 
-    def _on_buffer_changed(self, buf):
-        if self._suppress:
-            return
-        self._external_changed(buf)
+        elif msg_type == 'done':
+            if 0 <= index < len(self._blocks):
+                self._blocks[index] = msg['content']
+                self._rebuild_content()
+                # Re-render just that block in the webview
+                html_fragment = render_block(msg['content'])
+                encoded = base64.b64encode(html_fragment.encode('utf-8')).decode('ascii')
+                js = (
+                    f'(function() {{'
+                    f'  var div = document.querySelector(\'.md-block[data-index="{index}"]\');'
+                    f'  if (div) {{'
+                    f'    div.innerHTML = atob("{encoded}");'
+                    f'    div.classList.remove("editing");'
+                    f'  }}'
+                    f'  window._blocks[{index}] = {json.dumps(msg["content"])};'
+                    f'  window._blockHtml[{index}] = atob("{encoded}");'
+                    f'}})()'
+                )
+                self._webview.run_javascript(js, None, None, None)
+                if self._on_save_and_refresh:
+                    self._on_save_and_refresh()
+            self._editing_index = -1
 
-    def _on_webview_click(self, widget, event):
-        if event.type == Gdk.EventType._2BUTTON_PRESS:
-            self.switch_to_edit()
-            return True
-        return False
+        elif msg_type == 'shortcut':
+            key = msg.get('key')
+            if key == 'save':
+                self._rebuild_content()
+                if self._on_save_and_refresh:
+                    self._on_save_and_refresh()
+            elif key == 'next':
+                self._fake_key_press(Gdk.KEY_Tab, Gdk.ModifierType.CONTROL_MASK)
+            elif key == 'prev':
+                self._fake_key_press(Gdk.KEY_ISO_Left_Tab,
+                                     Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
 
-    def _on_edit_key_press(self, widget, event):
-        if event.keyval == Gdk.KEY_Escape:
-            self.switch_to_read()
-            return True
+    def _fake_key_press(self, keyval, state):
+        event = Gdk.Event.new(Gdk.EventType.KEY_PRESS)
+        event.keyval = keyval
+        event.state = state
+        event.window = self._webview.get_window()
+        self._external_key_press(self._webview, event)
+
+    def _on_key_press_event(self, widget, event):
         return self._external_key_press(widget, event)
 
-    def _on_read_key_press(self, widget, event):
-        """Forward key presses in read mode (Ctrl+S, Ctrl+Tab, etc.)."""
-        return self._external_key_press(widget, event)
-
-    def _on_focus_out(self, widget, event):
-        # Only switch if we're still in edit mode and the focus went
-        # outside of this editor entirely
-        GLib.idle_add(self._check_focus_out)
-        return False
-
-    def _check_focus_out(self):
-        focused = self._textview.has_focus()
-        if not focused and self.mode == "edit":
-            self.switch_to_read()
+    def _on_decide_policy(self, webview, decision, decision_type):
+        if decision_type == WebKit2.PolicyDecisionType.NAVIGATION_ACTION:
+            nav = decision.get_navigation_action()
+            req = nav.get_request()
+            uri = req.get_uri()
+            if uri and not uri.startswith("about:"):
+                decision.ignore()
+                return True
         return False
